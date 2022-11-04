@@ -1,0 +1,16 @@
+neo4j: 
+ host: '34.172.112.204'
+ port: 8491
+ user: 'neo4j'
+ password: '!twittertest'
+ tls: False
+ concurrency: 50
+ database: 'users200m'
+
+dataset:
+ node_parquet_files_uri: 'gs://yan-users-export/pqdataset/nodes'
+ relationship_parquet_files_uri: 'gs://yan-users-export/pqdataset/relationships'
+
+worker:
+ concurrency: 50
+ arrow_table_size: 1_000_000

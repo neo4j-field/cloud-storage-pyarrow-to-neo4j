@@ -15,9 +15,9 @@ class ClientState(Enum):
 
 
 class Neo4jArrowClient():
-    def __init__(self, host: str, *, port: int=8491, user: str = "neo4j",
-                 password: str = "!twittertest", tls: bool = False,
-                 concurrency: int = 4, database: str = "users200m"):
+    def __init__(self, host: str, *, port: int, user: str,
+                 password: str, tls: bool = False,
+                 concurrency: int = 4, database: str):
         self.host = host
         self.port = port
         self.user = user

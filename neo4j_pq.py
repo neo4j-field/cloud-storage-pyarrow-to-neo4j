@@ -5,16 +5,17 @@ import multiprocessing as mp
 import subprocess as sub
 
 import pyarrow as pa
-import neo4j_arrow_v2 as na
+import neo4j_arrow as na
 from pyarrow import parquet as pq
 
 _worker_na_client = None
 
 def _initializer(client: na.Neo4jArrowClient):
     """Initializer for our multiprocessing Pool members."""
+    #log(f"Inside initializer {arrow_table_size} of type {type(arrow_table_size)}")
+    
     global _worker_na_client
     _worker_na_client = client
-
 
 def _process_nodes(nodes, **kwargs) -> Tuple[int, int]:
     """Streams the given PyArrow table to the Neo4j server using a Neo4jArrowClient."""
@@ -62,7 +63,6 @@ def worker(work: Union[Dict[str, Any], List[Dict[str, Any]]]) -> Dict[str, Any]:
     """Main logic for our subprocessing children"""
     
     name = f"worker-{os.getpid()}"
-    
     if isinstance(work, dict):
         work = [work]
     
@@ -70,7 +70,7 @@ def worker(work: Union[Dict[str, Any], List[Dict[str, Any]]]) -> Dict[str, Any]:
         """Apply consumer to a PyArrow Fragment in the form of a generator"""
         
         fragment = kwargs["fragment"]
-        scanner = fragment.scanner(batch_size=1000000)
+        scanner = fragment.scanner(batch_size=kwargs["table_size"])
         
         def batch_generator():
             for recordBatch in scanner.to_batches():
@@ -114,7 +114,7 @@ def worker(work: Union[Dict[str, Any], List[Dict[str, Any]]]) -> Dict[str, Any]:
 #
 ###############################################################################
 
-def fan_out(client: na.Neo4jArrowClient, data: List[str],
+def fan_out(client: na.Neo4jArrowClient, data: str, arrow_table_size: int,
             processes: int = 0, timeout: int = 1000000) -> Tuple[List[Any], float]:
     """
     This is where the magic happens. Pop open a subprocess that execs this same
@@ -124,11 +124,11 @@ def fan_out(client: na.Neo4jArrowClient, data: List[str],
     
     This design solves problems with Jupyter kernels mismanaging children.
     """
-    config = { "processes": processes, "client": client.copy() }
+    config = { "processes": processes, "client": client.copy(), "arrow_table_size": arrow_table_size }
     #payload = base64.b64encode(pickle.dumps((config, work)))
     payload = pickle.dumps((config, data))
     
-    argv = [sys.executable, "./neo4j_pq_v2.py"]
+    argv = [sys.executable, "./neo4j_pq.py"]
     with sub.Popen(argv, stdin=sub.PIPE, stdout=sub.PIPE) as proc:
         try:
             (out, _) = proc.communicate(payload, timeout=timeout)
@@ -157,24 +157,24 @@ if __name__ == "__main__":
         (config, data) = pickle.load(sys.stdin.buffer)
         
         work = []
-        
+        arrow_table_size = config['arrow_table_size']   
         #Create pyarrow parquet dataset from passed uri location
         pyarrow_dataset = pq.ParquetDataset(data, use_legacy_dataset=False)
         log(f"Dataset {type(pyarrow_dataset)} created from: {data}")
     
         #Break the pyarrow parquet dataset into fragments
         if "nodes" in data:
-            work = [dict(key = "node", fragment = fragment) for fragment in pyarrow_dataset.fragments]
+            work = [dict(key = "node", fragment = fragment, table_size = arrow_table_size) for fragment in pyarrow_dataset.fragments]
             
         elif "relationships" in data:
-            work = [dict(src = "edge", fragment = fragment) for fragment in pyarrow_dataset.fragments]
+            work = [dict(src = "edge", fragment = fragment, table_size = arrow_table_size) for fragment in pyarrow_dataset.fragments]
         
 
-        client = config["client"]
+        client = config["client"]      
         log(f"Using: 🚀 {client}")
         
         processes = min(len(work), config.get("processes") or int(mp.cpu_count() * 1.3))
-        log(f"Spawning {processes:,} workers 🧑‍🏭 to process {len(work):,} tasks 📋")
+        log(f"Spawning {processes:,} workers 🧑‍🏭 to process {len(work):,} dataset fragments 📋")
         
         numTicks = 33
         if (int(len(work) / numTicks) == 0):
