@@ -5,7 +5,7 @@ import multiprocessing as mp
 import subprocess as sub
 
 import pyarrow as pa
-import neo4j_arrow as na
+import neo4j_arrow_client as na
 from pyarrow import parquet as pq
 
 _worker_na_client = None

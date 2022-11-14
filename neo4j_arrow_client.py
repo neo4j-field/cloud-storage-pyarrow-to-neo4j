@@ -17,7 +17,7 @@ class ClientState(Enum):
 class Neo4jArrowClient():
     def __init__(self, host: str, *, port: int, user: str,
                  password: str, tls: bool = False,
-                 concurrency: int = 4, database: str):
+                 concurrency: int = 4, database: str, projection: str = None):
         self.host = host
         self.port = port
         self.user = user
@@ -26,6 +26,7 @@ class Neo4jArrowClient():
         self.client: flight.FlightClient = None
         self.call_opts = None
         self.database = database
+        self.projection= projection
         self.concurrency = concurrency
         self.state = ClientState.READY
 
@@ -45,7 +46,7 @@ class Neo4jArrowClient():
         client = Neo4jArrowClient(self.host, port=self.port, user=self.user,
                                   password=self.password,
                                   tls=self.tls, concurrency=self.concurrency,
-                                  database=self.database)
+                                  database=self.database,projection=self.projection)
         client.state = self.state
         return client
 
@@ -146,7 +147,20 @@ class Neo4jArrowClient():
                 "force": True,
                 "record_format": "aligned",
                 "id_property": "id",
-                "id_type": "STRING"
+                "id_type": "INTEGER"
+            }
+        result = self._send_action(action, config)
+        if result:
+            self.state = ClientState.FEEDING_NODES
+        return result
+    
+    def create_projection(self, action: str = "CREATE_GRAPH", config: Dict[str, Any] = {}) -> Dict[str, Any]:
+        assert self.state == ClientState.READY
+        if not config:
+            config = {
+                "name": self.projection, 
+                "database_name": self.database, 
+                "concurrency": self.concurrency,
             }
         result = self._send_action(action, config)
         if result:
@@ -155,7 +169,7 @@ class Neo4jArrowClient():
 
     def write_nodes(self, nodes: Union[pa.Table, Iterable[pa.RecordBatch]], mappingfn = None) -> Tuple[int, int]:
         assert self.state == ClientState.FEEDING_NODES
-        desc = { "name": self.database, "entity_type": "node" }
+        desc = { "name": self.database if self.projection == None else self.projection, "entity_type": "node" }
         
         if isinstance(nodes, pa.Table):
             return self._write_table(desc, nodes, mappingfn)
@@ -163,7 +177,7 @@ class Neo4jArrowClient():
 
     def nodes_done(self) -> Dict[str, Any]:
         assert self.state == ClientState.FEEDING_NODES
-        result = self._send_action("NODE_LOAD_DONE", { "name": self.database })
+        result = self._send_action("NODE_LOAD_DONE", { "name": self.database if self.projection == None else self.projection })
         if result:
             self.state = ClientState.FEEDING_EDGES
         return result
@@ -171,7 +185,7 @@ class Neo4jArrowClient():
     def write_edges(self, edges: Union[pa.Table, Iterable[pa.RecordBatch]], mappingfn = None) -> Tuple[int, int]:
         assert self.state == ClientState.FEEDING_EDGES
         
-        desc = { "name": self.database, "entity_type": "relationship" }
+        desc = { "name": self.database if self.projection == None else self.projection, "entity_type": "relationship" }
 
         
         if isinstance(edges, pa.Table):
@@ -182,7 +196,7 @@ class Neo4jArrowClient():
     def edges_done(self) -> Dict[str, Any]:
         assert self.state == ClientState.FEEDING_EDGES
         result = self._send_action("RELATIONSHIP_LOAD_DONE",
-                                   { "name": self.database })
+                                   { "name": self.database if self.projection == None else self.projection })
         if result:
             self.state = ClientState.AWAITING_GRAPH
         return result

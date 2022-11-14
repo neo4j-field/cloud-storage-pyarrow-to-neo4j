@@ -2,15 +2,19 @@ neo4j:
  host: '34.172.112.204'
  port: 8491
  user: 'neo4j'
- password: '!twittertest'
+ password: 'your-password'
  tls: False
  concurrency: 50
- database: 'users200m'
-
+ database: 'neo4j'
+ #projection: 'mygraph'
+   
 dataset:
- node_parquet_files_uri: 'gs://yan-users-export/pqdataset/nodes'
- relationship_parquet_files_uri: 'gs://yan-users-export/pqdataset/relationships'
+ node_parquet_files_uri: 'gs://yan-users-export/pqdataset-projection/nodes'
+ relationship_parquet_files_uri: 'gs://yan-users-export/pqdataset-projection/relationships'
 
 worker:
  concurrency: 50
  arrow_table_size: 1_000_000
+
+
+ 

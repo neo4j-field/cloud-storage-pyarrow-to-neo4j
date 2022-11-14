@@ -1,11 +1,22 @@
-# cloud-storage-pyarrow-to-neo4j
-Stream arrow tables from staged parquet files into Neo4j 
+# Data ingestion for Neo4j GDS (via Apache Arrow) 🏹
+This project contains python notebooks that load data into a Neo4j Database or Graph Projection
+from large datasets consisted of **Apache Parquet** files.
 
-## License & Copyright
+## Managing large datasets with Apache Arrow
 
-The works provided are copyright 2022 Neo4j, Inc.
+One of the main capibilities of Apache Arrow is the ability to deal with <strong>memory-mapped files</strong>,<br>
+this allows Arrow to read datasets that are bigger than the available RAM without incurring any additional memory cost.<br>
 
-All files in this project are made available under the Apache License, Version
-2.0 (see [LICENSE](./LICENSE)) unless otherwise noted. If/when there are
-exceptions, the applicable license and copyright will be noted within the
-individual file.
+With the PyArrow ParquetDataset module we can create a dataset of memory-map parquet files, it can then be fragmented and processed in batches.
+    
+In adition to `local` & `hdfs` storage, PyArrow also supports cloud object storage such as:
+
+* Amazon Simple Storage (S3)
+* Google Cloud Storage (GCS)
+* Microsoft Azure Blob Storage
+
+![image info](./images/pyarrow_datasets_architecture.png)
+## Neo4j GDS Arrow Installation
+
+Please see the [Apache Arrow](https://neo4j.com/docs/graph-data-science/current/installation/installation-apache-arrow/) installation instructions in the Neo4j GDS documentation.
+
